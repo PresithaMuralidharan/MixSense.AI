@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: mixsense_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mixsense_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mixsense_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-mixsense_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mixsense_user -d mixsense_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: mixsense_app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://mixsense_user:mixsense_secret@postgres:5432/mixsense_db
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - STREAMLIT_PORT=8501
+      - API_BASE_URL=http://localhost:8000
+      - ENABLE_HISTORY_STORAGE=True
+    ports:
+      - "8000:8000"
+      - "8501:8501"
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
